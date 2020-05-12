@@ -7,6 +7,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.Serializable;
 
+import static main.java.com.example.Constants.*;
 
 @Data
 public class StockType implements Serializable {
@@ -33,18 +34,6 @@ public class StockType implements Serializable {
 
     public StockType(Result result){
 
-        final byte[] PRICE_CF = Bytes.toBytes("price");
-        final byte[] INFO_CF = Bytes.toBytes("info");
-
-        final byte[] DATE = Bytes.toBytes("date");
-        final byte[] OPEN = Bytes.toBytes("open");
-        final byte[] HIGH = Bytes.toBytes("high");
-        final byte[] LOW = Bytes.toBytes("low");
-        final byte[] CLOSE = Bytes.toBytes("close");
-        final byte[] VOLUME = Bytes.toBytes("volume");
-        final byte[] ADJCLOSE = Bytes.toBytes("adjClose");
-        final byte[] SYMBOL = Bytes.toBytes("symbol");
-
         this.date = getStringValue(result, PRICE_CF, DATE);
         this.open = getStringValue(result, PRICE_CF, OPEN);
         this.high = getStringValue(result, PRICE_CF, HIGH);
@@ -62,20 +51,30 @@ public class StockType implements Serializable {
         return null;
     }
 
+    public byte[] toBytes(Double d){
+        if(d != null){
+            return Bytes.toBytes(d);
+        }
+        return null;
+    }
+
+    public Double pct(){
+        if(this.open != null && this.close != null){
+            try {
+                final Double openAsDouble = Double.valueOf(open);
+                final Double closeAsDouble = Double.valueOf(close);
+                return 100 * (closeAsDouble - openAsDouble) / openAsDouble;
+            }catch (Exception e){
+
+            }
+        }
+        return null;
+    }
+
     public Put toPut(){
-        final byte[] PRICE_CF = Bytes.toBytes("price");
-        final byte[] INFO_CF = Bytes.toBytes("info");
 
-
-        final byte[] DATE = Bytes.toBytes("date");
-        final byte[] OPEN = Bytes.toBytes("open");
-        final byte[] HIGH = Bytes.toBytes("high");
-        final byte[] LOW = Bytes.toBytes("low");
-        final byte[] CLOSE = Bytes.toBytes("close");
-        final byte[] VOLUME = Bytes.toBytes("volume");
-        final byte[] ADJCLOSE = Bytes.toBytes("adjClose");
-        final byte[] SYMBOL = Bytes.toBytes("symbol");
-
+        final Double pct = pct();
+        final String pctStr = pct == null ? null : pct.toString();
 
         final Put put = new Put(Bytes.toBytes(this.symbol + " " + this.date))
                 .addColumn(PRICE_CF, DATE, toBytes(this.date))
@@ -86,6 +85,7 @@ public class StockType implements Serializable {
                 .addColumn(PRICE_CF, VOLUME, toBytes(this.date))
                 .addColumn(PRICE_CF, ADJCLOSE, toBytes(this.date))
                 .addColumn(INFO_CF, SYMBOL, toBytes(this.date))
+                .addColumn(PRICE_CF, PCT, toBytes(pctStr))
                 ;
         return put;
     }

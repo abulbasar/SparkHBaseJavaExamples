@@ -3,7 +3,8 @@ package main.java.com.example;
 import main.java.com.example.models.StockType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableInputFormat;
 import org.apache.spark.SparkConf;
@@ -11,17 +12,20 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
 
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
-public class HbaseApp {
+public class HbaseApp implements Serializable {
 
-    private SparkSession sparkSession;
-    private JavaSparkContext sparkContext;
-    private Configuration hbaseConfig;
+    private transient SparkSession sparkSession;
+    private transient JavaSparkContext sparkContext;
 
     public void start(){
         SparkConf conf = new SparkConf();
@@ -31,15 +35,21 @@ public class HbaseApp {
 
         sparkContext = new JavaSparkContext(sparkSession.sparkContext());
 
-        hbaseConfig = HBaseConfiguration.create();
+        final Configuration hbaseConfig = getHbaseConfig();
+
+        read("stocks");
+    }
+
+    private Configuration getHbaseConfig(){
+        final Configuration hbaseConfig = HBaseConfiguration.create();
         hbaseConfig.set("hbase.zookeeper.quorum", "localhost:2181");
         hbaseConfig.setInt("hbase.client.scanner.caching", 10000);
         hbaseConfig.set("hbase.zookeeper.quorum", "192.168.1.18:2181");
         hbaseConfig.set("zookeeper.znode.parent", "/hbase-unsecure");
         hbaseConfig.set("timeout", "120000");
-
-        read();
+        return hbaseConfig;
     }
+
 
     private void show(JavaRDD<?> rdd, int n){
         final List<?> list = rdd.take(n);
@@ -49,8 +59,9 @@ public class HbaseApp {
 
     }
 
-    public void read(){
-        hbaseConfig.set(TableInputFormat.INPUT_TABLE, "stocks");
+    public void read(String tableName){
+        final Configuration hbaseConfig = getHbaseConfig();
+        hbaseConfig.set(TableInputFormat.INPUT_TABLE, tableName);
         final JavaPairRDD<ImmutableBytesWritable, Result> hbaseRdd =
                 sparkContext.newAPIHadoopRDD(hbaseConfig
                 , TableInputFormat.class
@@ -63,8 +74,8 @@ public class HbaseApp {
 
         show(stockTypeJavaRDD, 10);
 
-        final Dataset<Row> dataset = sparkSession.createDataFrame(stockTypeJavaRDD
-                , StockType.class);
+        final Dataset<StockType> dataset = sparkSession
+                .createDataset(stockTypeJavaRDD.rdd(), Encoders.bean(StockType.class));
 
         dataset.show(10, false);
 
@@ -73,7 +84,33 @@ public class HbaseApp {
                 " from stocks where year(date) > 2010 " +
                 " group by symbol order by avg_vol desc limit 10")
                 .show(10, false);
+
+        write(dataset,tableName);
+
         sparkSession.close();
+    }
+
+
+    private void write(final Dataset<StockType> stocks, String tableName){
+
+        stocks.foreachPartition(partition -> {
+            final Configuration hbaseConfig = getHbaseConfig();
+            try {
+                final Connection connection = ConnectionFactory.createConnection(hbaseConfig);
+                final Table table = connection.getTable(TableName.valueOf(tableName));
+                List<Put> puts = new ArrayList<>();
+                while (partition.hasNext()) {
+                    final StockType stockType = partition.next();
+                    puts.add(stockType.toPut());
+                }
+                Object[] results = new Object[puts.size()];
+                table.batch(puts, results);
+                table.close();
+                connection.close();
+            }catch (IOException e){
+                e.printStackTrace();
+            }
+        });
     }
 
     public static void main(String... args){
