@@ -29,6 +29,14 @@
         <scalaVersion>2.11</scalaVersion>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>hortonworks</id>
+            <name>Hortonworks</name>
+            <url>https://repo.hortonworks.com/content/repositories/releases/</url>
+        </repository>
+    </repositories>
+
 
     <dependencies>
         <dependency>
@@ -57,7 +65,6 @@
             <artifactId>netty-all</artifactId>
             <version>4.1.42.Final</version>
         </dependency>
-
 
     </dependencies>
 

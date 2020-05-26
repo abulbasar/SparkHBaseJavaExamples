@@ -13,7 +13,6 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
-import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
 
@@ -22,31 +21,41 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class HbaseApp implements Serializable {
+public class HBaseRddApp implements Serializable {
 
     private transient SparkSession sparkSession;
     private transient JavaSparkContext sparkContext;
+    private String[] args;
+
+    public HBaseRddApp(String[] args){
+        this.args = args;
+    }
 
     public void start(){
+
+        String inputTable = "stocks";
+        String outputTable = "stocks_bin";
+
         SparkConf conf = new SparkConf();
         conf.setAppName(getClass().getName());
         conf.setIfMissing("spark.master", "local[2]");
         sparkSession = SparkSession.builder().config(conf).getOrCreate();
-
         sparkContext = new JavaSparkContext(sparkSession.sparkContext());
+        Dataset<StockType> stocksDataset = read(inputTable);
 
-        final Configuration hbaseConfig = getHbaseConfig();
+        write(stocksDataset, outputTable);
 
-        read("stocks");
+        sparkSession.close();
     }
 
     private Configuration getHbaseConfig(){
         final Configuration hbaseConfig = HBaseConfiguration.create();
-        hbaseConfig.set("hbase.zookeeper.quorum", "localhost:2181");
-        hbaseConfig.setInt("hbase.client.scanner.caching", 10000);
+        // Hbase configuration: https://hbase.apache.org/book.html#hbase_default_configurations
+        hbaseConfig.setInt("hbase.client.scanner.caching", 1000);
         hbaseConfig.set("hbase.zookeeper.quorum", "192.168.1.18:2181");
         hbaseConfig.set("zookeeper.znode.parent", "/hbase-unsecure");
-        hbaseConfig.set("timeout", "120000");
+        hbaseConfig.set("zookeeper.session.timeout", "90000"); // 90 secs default
+        hbaseConfig.set("hbase.rpc.timeout", "300000"); // 300 secs default
         return hbaseConfig;
     }
 
@@ -59,7 +68,7 @@ public class HbaseApp implements Serializable {
 
     }
 
-    public void read(String tableName){
+    public Dataset<StockType> read(String tableName){
         final Configuration hbaseConfig = getHbaseConfig();
         hbaseConfig.set(TableInputFormat.INPUT_TABLE, tableName);
         final JavaPairRDD<ImmutableBytesWritable, Result> hbaseRdd =
@@ -85,9 +94,8 @@ public class HbaseApp implements Serializable {
                 " group by symbol order by avg_vol desc limit 10")
                 .show(10, false);
 
-        write(dataset,tableName);
 
-        sparkSession.close();
+        return dataset;
     }
 
 
@@ -114,6 +122,6 @@ public class HbaseApp implements Serializable {
     }
 
     public static void main(String... args){
-        new HbaseApp().start();
+        new HBaseRddApp(args).start();
     }
 }

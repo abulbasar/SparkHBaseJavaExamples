@@ -1,8 +1,9 @@
-package main.java.com.example;
+package main.java.com.example.common;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.Serializable;
+import java.text.SimpleDateFormat;
 
 public class Constants implements Serializable {
 
@@ -18,4 +19,7 @@ public class Constants implements Serializable {
     public static final byte[] ADJCLOSE = Bytes.toBytes("adjClose");
     public static final byte[] SYMBOL = Bytes.toBytes("symbol");
     public static final byte[] PCT = Bytes.toBytes("pct");
+
+
+    public static SimpleDateFormat utcDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 }
