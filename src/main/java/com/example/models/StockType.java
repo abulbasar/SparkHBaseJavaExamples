@@ -8,8 +8,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import java.io.Serializable;
 import java.sql.Date;
 import java.text.ParseException;
-import java.time.LocalDate;
-import java.time.ZoneId;
 
 import static main.java.com.example.common.Constants.*;
 

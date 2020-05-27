@@ -84,7 +84,9 @@ public class HBaseRddApp implements Serializable {
         show(stockTypeJavaRDD, 10);
 
         final Dataset<StockType> dataset = sparkSession
-                .createDataset(stockTypeJavaRDD.rdd(), Encoders.bean(StockType.class));
+                .createDataset(stockTypeJavaRDD.rdd(), Encoders.bean(StockType.class))
+                .cache()
+                ;
 
         dataset.show(10, false);
 
