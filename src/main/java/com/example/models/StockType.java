@@ -1,6 +1,7 @@
 package main.java.com.example.models;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -12,6 +13,7 @@ import java.text.ParseException;
 import static main.java.com.example.common.Constants.*;
 
 @Data
+@NoArgsConstructor
 public class StockType implements Serializable {
 
     private Date date;
